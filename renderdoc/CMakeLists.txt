@@ -53,6 +53,12 @@ elseif(UNIX)
         PRIVATE -ldl
         PRIVATE -lrt)
 
+    if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+        list(APPEND RDOC_LIBRARIES
+    			PRIVATE -liconv
+			PRIVATE -lutil)
+    endif()
+
     if(ENABLE_XLIB)
         find_package(X11 REQUIRED)
 
@@ -309,6 +315,26 @@ elseif(ENABLE_GGP)
         os/posix/ggp/ggp_threading.cpp
         os/posix/ggp/ggp_hook.cpp
         os/posix/ggp/ggp_network.cpp
+        3rdparty/plthook/plthook.h
+        3rdparty/plthook/plthook_elf.c
+        os/posix/posix_network.h
+        os/posix/posix_network.cpp
+        os/posix/posix_process.cpp
+        os/posix/posix_stringio.cpp
+        os/posix/posix_threading.cpp
+        os/posix/posix_specific.h)
+elseif(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+    include_directories(/usr/local/include/)
+    link_directories(/usr/local/lib/)
+
+    list(APPEND sources
+        data/embedded_files.h
+        os/posix/freebsd/freebsd_stringio.cpp
+        os/posix/freebsd/freebsd_callstack.cpp
+        os/posix/freebsd/freebsd_process.cpp
+        os/posix/freebsd/freebsd_threading.cpp
+        os/posix/freebsd/freebsd_hook.cpp
+        os/posix/freebsd/freebsd_network.cpp
         3rdparty/plthook/plthook.h
         3rdparty/plthook/plthook_elf.c
         os/posix/posix_network.h
@@ -578,7 +604,7 @@ add_dependencies(renderdoc renderdoc_libentry)
 if(UNIX AND NOT ANDROID AND NOT APPLE)
     set(RDOC_LINK_FLAGS "-Wl,--undefined,force_include_libentry -Wl,--version-script,${CMAKE_CURRENT_SOURCE_DIR}/renderdoc.version")
 
-    if(NOT ENABLE_ASAN AND NOT ENABLE_TSAN)
+    if(NOT ENABLE_ASAN AND NOT ENABLE_TSAN AND NOT CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
         set(RDOC_LINK_FLAGS "${RDOC_LINK_FLAGS} -Wl,--no-undefined")
     endif()
 

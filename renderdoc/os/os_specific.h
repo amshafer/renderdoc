@@ -36,6 +36,8 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <functional>
+#include <time.h>
+#include <stdio.h>
 #include "api/replay/rdcarray.h"
 #include "api/replay/rdcpair.h"
 #include "api/replay/rdcstr.h"

@@ -32,6 +32,11 @@ elseif(ENABLE_GGP)
     list(APPEND libraries PRIVATE ${GGP_LIBRARY})
     set(LINKER_FLAGS "-Wl,--no-as-needed -Wl,--hash-style=gnu -Wl,--build-id=sha1")
 elseif(UNIX)
+    if(CMAKE_SYSTEM_NAME STREQUAL "FreeBSD")
+        include_directories(/usr/local/include/)
+        link_directories(/usr/local/lib/)
+    endif()
+
     list(APPEND sources renderdoccmd_linux.cpp)
 
     if(ENABLE_XLIB)
