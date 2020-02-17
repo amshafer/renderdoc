@@ -1,7 +1,7 @@
 /******************************************************************************
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2019 Baldur Karlsson
+ * Copyright (c) 2019-2020 Baldur Karlsson
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -181,7 +181,6 @@ void *intercept_dlopen(const char *filename, int flag, void *ret)
   if(filename == NULL)
     return ret;
 
-  // XXX: if(flag & RTLD_DEEPBIND)
   plthook_lib(ret);
 
   rdcstr base = get_basename(filename);

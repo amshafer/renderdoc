@@ -1,7 +1,7 @@
 /******************************************************************************
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2019 Baldur Karlsson
+ * Copyright (c) 2019-2020 Baldur Karlsson
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -41,6 +41,4 @@ uint64_t Timing::GetTick()
 
 void Threading::SetCurrentThreadName(const rdcstr &name)
 {
-	//pthread_setname_np(pthread_self(), name.c_str(), NULL);
-	// XXX: do nothing for now
 }

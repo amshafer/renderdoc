@@ -1283,14 +1283,14 @@
   FUNC(glGetPerfQueryDataINTEL, glGetPerfQueryDataINTEL); \
   FUNC(glGetPerfQueryIdByNameINTEL, glGetPerfQueryIdByNameINTEL); \
   FUNC(glGetPerfQueryInfoINTEL, glGetPerfQueryInfoINTEL); \
-  FUNC(wglDXSetResourceShareHandleNV, wglDXSetResourceShareHandleNV); \
-  FUNC(wglDXOpenDeviceNV, wglDXOpenDeviceNV); \
-  FUNC(wglDXCloseDeviceNV, wglDXCloseDeviceNV); \
-  FUNC(wglDXRegisterObjectNV, wglDXRegisterObjectNV); \
-  FUNC(wglDXUnregisterObjectNV, wglDXUnregisterObjectNV); \
-  FUNC(wglDXObjectAccessNV, wglDXObjectAccessNV); \
-  FUNC(wglDXLockObjectsNV, wglDXLockObjectsNV); \
-  FUNC(wglDXUnlockObjectsNV, wglDXUnlockObjectsNV); \
+  //FUNC(wglDXSetResourceShareHandleNV, wglDXSetResourceShareHandleNV);
+  //FUNC(wglDXOpenDeviceNV, wglDXOpenDeviceNV);
+  //FUNC(wglDXCloseDeviceNV, wglDXCloseDeviceNV);
+  //FUNC(wglDXRegisterObjectNV, wglDXRegisterObjectNV);
+  //FUNC(wglDXUnregisterObjectNV, wglDXUnregisterObjectNV);
+  //FUNC(wglDXObjectAccessNV, wglDXObjectAccessNV);
+  //FUNC(wglDXLockObjectsNV, wglDXLockObjectsNV);
+  //FUNC(wglDXUnlockObjectsNV, wglDXUnlockObjectsNV);
 
 
 
