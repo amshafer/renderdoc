@@ -479,6 +479,7 @@ enum MachineIdentBits
   MachineIdent_macOS = 0x00000004,
   MachineIdent_Android = 0x00000008,
   MachineIdent_iOS = 0x00000010,
+  MachineIdent_FreeBSD = 0x00000020,
   // unused bits 0x20, 0x40, 0x80
   MachineIdent_OS_Mask = 0x000000ff,
 

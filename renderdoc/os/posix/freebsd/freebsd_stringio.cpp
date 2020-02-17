@@ -1,7 +1,7 @@
 /******************************************************************************
  * The MIT License (MIT)
  *
- * Copyright (c) 2016-2019 Baldur Karlsson
+ * Copyright (c) 2019-2020 Baldur Karlsson
  *
  * Permission is hereby granted, free of charge, to any person obtaining a copy
  * of this software and associated documentation files (the "Software"), to deal
@@ -22,6 +22,7 @@
  * THE SOFTWARE.
  ******************************************************************************/
 
+#include <ctype.h>
 #include <dlfcn.h>
 #include <errno.h>
 #include <iconv.h>
@@ -30,10 +31,11 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/user.h>
+#include <libutil.h>
 #include <time.h>
 #include <unistd.h>
 #include <set>
-#include <ctype.h>
 #include "api/app/renderdoc_app.h"
 #include "api/replay/replay_enums.h"
 #include "common/common.h"
@@ -58,6 +60,7 @@ struct xcb_connection_t;
 #if ENABLED(RDOC_WAYLAND)
 #include <linux/input.h>
 #include <wayland-client.h>
+#include <map>
 #else
 struct wl_display;
 struct wl_surface;
@@ -574,12 +577,53 @@ rdcstr GetAppFolderFilename(const rdcstr &filename)
   return ret + filename;
 }
 
+static int GetPathName(char *dst, int size) {
+  unsigned int curpid = getpid();
+  struct kinfo_proc *kip;
+
+  kip = kinfo_getproc(curpid);
+  if (kip == NULL)
+  	return -1;
+
+  strncpy(dst, kip->ki_comm, size);
+
+  free(kip);
+  return 0;
+}
+
 void GetExecutableFilename(rdcstr &selfName)
 {
   char path[512] = {0};
-  readlink("/proc/self/exe", path, 511);
 
-  selfName = rdcstr(path);
+  size_t pathSize = sizeof(path);
+  if(GetPathName(path, pathSize) == 0)
+  {
+    selfName = rdcstr(path);
+  }
+  else
+  {
+    pathSize++;
+    char *allocPath = new char[pathSize];
+    memset(allocPath, 0, pathSize);
+    if(GetPathName(path, pathSize) == 0)
+    {
+      selfName = rdcstr(path);
+    }
+    else
+    {
+      selfName = "/unknown/unknown";
+      RDCERR("Can't get executable name");
+      delete[] allocPath;
+      return;    // don't try and readlink this
+    }
+    delete[] allocPath;
+  }
+
+  memset(path, 0, sizeof(path));
+  readlink(selfName.c_str(), path, 511);
+
+  if(path[0] != 0)
+    selfName = rdcstr(path);
 }
 
 int LibraryLocator = 42;
@@ -810,9 +854,10 @@ void WriteOutput(int channel, const char *str)
   }
 }
 
+
 uint64_t GetMachineIdent()
 {
-  uint64_t ret = MachineIdent_Linux;
+  uint64_t ret = MachineIdent_FreeBSD;
 
 #if defined(_M_ARM) || defined(__arm__)
   ret |= MachineIdent_Arch_ARM;
