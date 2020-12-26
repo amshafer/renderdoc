@@ -685,22 +685,15 @@ rdcstr Process::GetEnvVariable(const rdcstr &name)
 
 uint64_t Process::GetMemoryUsage()
 {
-  FILE *f = FileIO::fopen("/proc/self/statm", FileIO::ReadText);
+  unsigned int ret, curpid = getpid();
+  struct kinfo_proc *kip;
 
-  if(f == NULL)
-  {
-    RDCWARN("Couldn't open /proc/self/statm");
-    return 0;
-  }
+  kip = kinfo_getproc(curpid);
+  if (kip == NULL)
+       return 0;
 
-  char line[512] = {};
-  fgets(line, 511, f);
+  ret = kip->ki_rusage.ru_maxrss;
 
-  uint32_t vmPages = 0;
-  int num = sscanf(line, "%u", &vmPages);
-
-  if(num == 1 && vmPages > 0)
-    return vmPages * (uint64_t)sysconf(_SC_PAGESIZE);
-
-  return 0;
+  free(kip);
+  return ret;
 }
