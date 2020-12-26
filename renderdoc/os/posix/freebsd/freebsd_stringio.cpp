@@ -635,7 +635,7 @@ void GetLibraryFilename(rdcstr &selfName)
 
   rdcstr librenderdoc_path;
 
-  FILE *f = fopen("/proc/self/maps", "r");
+  FILE *f = FileIO::fopen("/proc/self/maps", FileIO::ReadText);
 
   if(f)
   {
