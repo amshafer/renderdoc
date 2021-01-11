@@ -40,10 +40,10 @@
 #include "core/settings.h"
 #include "os/os_specific.h"
 
-RDOC_CONFIG(bool, Linux_PtraceChildProcesses, true,
+RDOC_CONFIG(bool, FreeBSD_PtraceChildProcesses, true,
             "Use ptrace(2) to trace child processes at startup to ensure connection is made as "
             "early as possible.");
-RDOC_CONFIG(bool, Linux_Debug_PtraceLogging, false,
+RDOC_CONFIG(bool, FreeBSD_Debug_PtraceLogging, false,
             "Enable verbose debug logging of ptrace usage.");
 
 extern char **environ;
@@ -155,7 +155,7 @@ int GetIdentPort(pid_t childPid)
 
 static bool ptrace_scope_ok()
 {
-  if(!Linux_PtraceChildProcesses())
+  if(!FreeBSD_PtraceChildProcesses())
     return false;
 
   rdcstr contents;
@@ -252,7 +252,7 @@ static bool wait_traced_child(pid_t childPid, uint32_t timeoutMS, int &status)
 
   const uint64_t timeoutNanoseconds = uint64_t(timeoutMS) * 1000 * 1000;
 
-  while((ret = waitpid(childPid, &status, WNOHANG)) == 0)
+  while((ret = waitpid(childPid, &status, WNOHANG)) == childPid)
   {
     status = 0;
 
@@ -268,7 +268,7 @@ static bool wait_traced_child(pid_t childPid, uint32_t timeoutMS, int &status)
 
       // if it still didn't succeed, set status to 0 so we know we're earlying out and don't check
       // the status codes.
-      if(ret == 0)
+      if(ret == childPid)
         status = 0;
       return true;
     }
@@ -290,7 +290,7 @@ bool StopChildAtMain(pid_t childPid)
   if(!ptrace_scope_ok())
     return false;
 
-  if(Linux_Debug_PtraceLogging())
+  if(FreeBSD_Debug_PtraceLogging())
     RDCLOG("Stopping child PID %u at main", childPid);
 
   int childStatus = 0;
@@ -310,7 +310,7 @@ bool StopChildAtMain(pid_t childPid)
     return false;
   }
 
-  if(Linux_Debug_PtraceLogging())
+  if(FreeBSD_Debug_PtraceLogging())
     RDCLOG("Child PID %u is stopped in StopAtMainInChild()", childPid);
 
   int64_t ptraceRet = 0;
@@ -321,7 +321,7 @@ bool StopChildAtMain(pid_t childPid)
   ptraceRet = ptrace(PT_LWPINFO, childPid, (caddr_t)&lwpinfo, sizeof(lwpinfo));
   RDCASSERTEQUAL(ptraceRet, 0);
 
-  if(Linux_Debug_PtraceLogging())
+  if(FreeBSD_Debug_PtraceLogging())
     RDCLOG("Child PID %u configured to trace exec(). Continuing child", childPid);
 
   // continue
@@ -344,7 +344,7 @@ bool StopChildAtMain(pid_t childPid)
     return false;
   }
 
-  if(Linux_Debug_PtraceLogging())
+  if(FreeBSD_Debug_PtraceLogging())
     RDCLOG("Child PID %u is stopped at execve()", childPid);
 
   rdcstr exepath;
@@ -392,7 +392,7 @@ bool StopChildAtMain(pid_t childPid)
     return false;
   }
 
-  if(Linux_Debug_PtraceLogging())
+  if(FreeBSD_Debug_PtraceLogging())
     RDCLOG("Child PID %u has exepath %s basePointer 0x%llx and sectionOffset 0x%x", childPid,
            exepath.c_str(), (uint64_t)baseVirtualPointer, (uint32_t)sectionOffset);
 
@@ -422,7 +422,7 @@ bool StopChildAtMain(pid_t childPid)
 
   if(elf_header.e_shoff)
   {
-    if(Linux_Debug_PtraceLogging())
+    if(FreeBSD_Debug_PtraceLogging())
       RDCLOG("exepath %s contains sections, rebasing to correct section", exepath.c_str());
 
     FileIO::fseek64(elf, elf_header.e_shoff, SEEK_SET);
@@ -444,7 +444,7 @@ bool StopChildAtMain(pid_t childPid)
       if(section_header.sh_addr <= entryVirtual &&
          entryVirtual < section_header.sh_addr + section_header.sh_size)
       {
-        if(Linux_Debug_PtraceLogging())
+        if(FreeBSD_Debug_PtraceLogging())
           RDCLOG(
               "Found section in %s from 0x%llx - 0x%llx at offset 0x%llx containing entry 0x%llx.",
               exepath.c_str(), (uint64_t)section_header.sh_addr,
@@ -463,7 +463,7 @@ bool StopChildAtMain(pid_t childPid)
 
   void *entry = (void *)(baseVirtualPointer + entryFileOffset - sectionOffset);
 
-  if(Linux_Debug_PtraceLogging())
+  if(FreeBSD_Debug_PtraceLogging())
     RDCLOG("child process %u executable %s has entry %p at 0x%llx + (0x%llx - 0x%x)", childPid,
            exepath.c_str(), entry, (uint64_t)baseVirtualPointer, (uint64_t)entryFileOffset,
            (uint32_t)sectionOffset);
@@ -479,7 +479,7 @@ bool StopChildAtMain(pid_t childPid)
   RDCASSERTEQUAL(ptraceRet, sizeof(long));
   uint64_t origEntryWord = (uint64_t)pio_val;
 
-  if(Linux_Debug_PtraceLogging())
+  if(FreeBSD_Debug_PtraceLogging())
     RDCLOG("Read word %llx from %p in child process %u running executable %s",
            (uint64_t)origEntryWord, entry, childPid, exepath.c_str());
 
@@ -494,7 +494,7 @@ bool StopChildAtMain(pid_t childPid)
   ptraceRet = ptrace(PT_IO, childPid, (caddr_t)&pio_desc, 0);
   RDCASSERTEQUAL(ptraceRet, sizeof(long));
 
-  if(Linux_Debug_PtraceLogging())
+  if(FreeBSD_Debug_PtraceLogging())
     RDCLOG("Changed word to %llx and re-poked in process %u. Continuing child",
            (uint64_t)breakpointWord, childPid);
 
@@ -509,7 +509,7 @@ bool StopChildAtMain(pid_t childPid)
     return false;
   }
 
-  if(Linux_Debug_PtraceLogging())
+  if(FreeBSD_Debug_PtraceLogging())
     RDCLOG("Process %u hit entry point", childPid);
 
   // we're now at main! now just need to clean up after ourselves
@@ -519,7 +519,7 @@ bool StopChildAtMain(pid_t childPid)
   ptraceRet = ptrace(PT_GETREGS, childPid, (caddr_t)&regs, 0);
   RDCASSERTEQUAL(ptraceRet, 0);
 
-  if(Linux_Debug_PtraceLogging())
+  if(FreeBSD_Debug_PtraceLogging())
     RDCLOG("Process %u instruction pointer is at %llx, for entry point %p", childPid,
            (uint64_t)(regs.INST_PTR_REG), entry);
 
@@ -537,7 +537,7 @@ bool StopChildAtMain(pid_t childPid)
   ptraceRet = ptrace(PT_IO, childPid, (caddr_t)&pio_desc, 0);
   RDCASSERTEQUAL(ptraceRet, sizeof(long));
 
-  if(Linux_Debug_PtraceLogging())
+  if(FreeBSD_Debug_PtraceLogging())
     RDCLOG("Process %u instruction pointer adjusted and breakpoint removed.", childPid);
 
   // we'll resume after reading the ident port in the calling function
@@ -550,18 +550,18 @@ void StopAtMainInChild()
   if(!ptrace_scope_ok())
     return;
 
-  if(Linux_Debug_PtraceLogging())
+  if(FreeBSD_Debug_PtraceLogging())
     RDCLOG("Stopping in main at child for ptracing");
 
   // allow parent tracing, and immediately stop so the parent process can attach
   ptrace(PT_TRACE_ME, 0, 0, 0);
 
-  if(Linux_Debug_PtraceLogging())
+  if(FreeBSD_Debug_PtraceLogging())
     RDCLOG("Done PT_TRACEME, raising SIGSTOP");
 
   raise(SIGSTOP);
 
-  if(Linux_Debug_PtraceLogging())
+  if(FreeBSD_Debug_PtraceLogging())
     RDCLOG("Resumed after SIGSTOP");
 }
 
