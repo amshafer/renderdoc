@@ -43,7 +43,7 @@
 RDOC_CONFIG(bool, FreeBSD_PtraceChildProcesses, true,
             "Use ptrace(2) to trace child processes at startup to ensure connection is made as "
             "early as possible.");
-RDOC_CONFIG(bool, FreeBSD_Debug_PtraceLogging, false,
+RDOC_CONFIG(bool, FreeBSD_Debug_PtraceLogging, true,
             "Enable verbose debug logging of ptrace usage.");
 
 extern char **environ;
@@ -252,7 +252,7 @@ static bool wait_traced_child(pid_t childPid, uint32_t timeoutMS, int &status)
 
   const uint64_t timeoutNanoseconds = uint64_t(timeoutMS) * 1000 * 1000;
 
-  while((ret = waitpid(childPid, &status, WNOHANG)) == childPid)
+  while((ret = waitpid(childPid, &status, WNOHANG)) != childPid)
   {
     status = 0;
 
@@ -268,7 +268,7 @@ static bool wait_traced_child(pid_t childPid, uint32_t timeoutMS, int &status)
 
       // if it still didn't succeed, set status to 0 so we know we're earlying out and don't check
       // the status codes.
-      if(ret == childPid)
+      if(ret != childPid)
         status = 0;
       return true;
     }
@@ -337,10 +337,9 @@ bool StopChildAtMain(pid_t childPid)
     return false;
   }
 
-  if(childStatus > 0 && (childStatus >> 8) != (SIGTRAP | (PL_FLAG_EXEC << 8)))
+  if(childStatus > 0 && !(WIFSTOPPED(childStatus) || WIFEXITED(childStatus)))
   {
-    RDCERR("Exec wait event from child PID %u was status %x, expected %x", childPid,
-           (childStatus >> 8), (SIGTRAP | (PL_FLAG_EXEC << 8)));
+    RDCERR("Child PID %u exited after continue. Child status = %x", childPid, childStatus);
     return false;
   }
 
@@ -351,7 +350,7 @@ bool StopChildAtMain(pid_t childPid)
   long baseVirtualPointer = 0;
   uint32_t sectionOffset = 0;
 
-  rdcstr mapsName = StringFormat::Fmt("/proc/%u/maps", childPid);
+  rdcstr mapsName = StringFormat::Fmt("/proc/%u/map", childPid);
 
   FILE *maps = FileIO::fopen(mapsName, FileIO::ReadText);
 
@@ -366,20 +365,24 @@ bool StopChildAtMain(pid_t childPid)
     char line[512] = {0};
     if(fgets(line, 511, maps))
     {
-      if(strstr(line, "r-xp"))
+      if(strstr(line, "r-x"))
       {
         RDCCOMPILE_ASSERT(sizeof(long) == sizeof(void *), "Expected long to be pointer sized");
-        int pathOffset = 0;
-        int num = sscanf(line, "%lx-%*x r-xp %x %*x:%*x %*u %n", &baseVirtualPointer,
-                         &sectionOffset, &pathOffset);
+	char path[512] = {0};
+	// format: start, end, resident, private resident, cow, access, type, charged, charged uid.
+	// this is from FreeBSD's sys/fs/procfs/procfs_map.c
+	int num = sscanf(line, "0x%lx 0x%*lx %*d %*d %*p r-x %*d %*d 0x%*x %*s %*s %*s %s %*s %*d",
+			&baseVirtualPointer, path);
+	// there is no section offset for bsd, it looks like the start/end are what we should use
+	sectionOffset = 0;
 
-        if(num != 2 || pathOffset == 0)
+        if(num != 2)
         {
           RDCERR("Couldn't parse first executable mapping '%s'", rdcstr(line).trimmed().c_str());
           return false;
         }
 
-        exepath = line + pathOffset;
+        exepath = path;
         exepath.trim();
         break;
       }
