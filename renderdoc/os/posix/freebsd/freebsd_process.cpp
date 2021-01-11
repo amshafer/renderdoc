@@ -84,73 +84,116 @@ rdcarray<int> getSockets(pid_t childPid)
   return sockets;
 }
 
+rdcstr execcmd(const char *cmd)
+{
+  FILE *pipe = popen(cmd, "r");
+
+  if(!pipe)
+    return "ERROR";
+
+  char buffer[128];
+
+  rdcstr result = "";
+
+  while(!feof(pipe))
+  {
+    if(fgets(buffer, 128, pipe) != NULL)
+      result += buffer;
+  }
+
+  pclose(pipe);
+
+  return result;
+}
+
+bool isNewline(char c)
+{
+  return c == '\n' || c == '\r';
+}
+
 int GetIdentPort(pid_t childPid)
 {
-  int ret = 0;
-
-  rdcstr procfile = StringFormat::Fmt("/proc/%d/net/tcp", (int)childPid);
-
-  int waitTime = INITIAL_WAIT_TIME;
-
-  // try for a little while for the /proc entry to appear
-  while(ret == 0 && waitTime <= MAX_WAIT_TIME)
+  rdcstr lsof = StringFormat::Fmt("lsof -p %d -a -i 4 -F n", (int)childPid);
+  rdcstr result;
+  uint32_t wait = 1;
+  for(int i = 0; i < 10; ++i)
   {
-    // back-off for each retry
-    usleep(waitTime);
+    result = execcmd(lsof.c_str());
+    if(!result.empty())
+      break;
+    usleep(wait * 1000);
+    wait *= 2;
+  }
+  if(result.empty())
+  {
+    RDCERR("No output from lsof command: '%s'", lsof.c_str());
+    return 0;
+  }
 
-    waitTime *= 2;
+  // Parse the result expecting:
+  // p<PID>
+  // <TEXT>
+  // n*:<PORT>
 
-    FILE *f = FileIO::fopen(procfile, FileIO::ReadText);
-
-    if(f == NULL)
+  rdcstr parseResult(result);
+  const size_t len = parseResult.length();
+  if(parseResult[0] == 'p')
+  {
+    size_t tokenStart = 1;
+    size_t i = tokenStart;
+    for(; i < len; i++)
     {
-      // try again in a bit
-      continue;
+      if(parseResult[i] < '0' || parseResult[i] > '9')
+        break;
     }
+    parseResult[i++] = 0;
 
-    rdcarray<int> sockets = getSockets(childPid);
+    if(isNewline(parseResult[i]))
+      i++;
 
-    // read through the proc file to check for an open listen socket
-    while(ret == 0 && !feof(f))
+    const int pid = atoi(&result[tokenStart]);
+    if(pid == (int)childPid)
     {
-      const size_t sz = 512;
-      char line[sz];
-      line[sz - 1] = 0;
-      fgets(line, sz - 1, f);
-
-      // an example for a line:
-      // sl local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt  uid timeout inode
-      // 0: 00000000:9808 00000000:0000 0A 00000000:00000000 00:00000000 00000000 1000    0   109747
-
-      int socketnum = 0, hexip = 0, hexport = 0, inode = 0;
-      int num = sscanf(line, " %d: %x:%x %*x:%*x %*x %*x:%*x %*x:%*x %*x %*d %*d %d", &socketnum,
-                       &hexip, &hexport, &inode);
-
-      // find open listen socket on 0.0.0.0:port
-      if(num == 4 && hexip == 0 && hexport >= RenderDoc_FirstTargetControlPort &&
-         hexport <= RenderDoc_LastTargetControlPort && sockets.contains(inode))
+      const char *netString("n*:");
+      while(i < len)
       {
-        ret = hexport;
+        const int netStart = parseResult.find(netString, i);
+        if(netStart >= 0)
+        {
+          tokenStart = netStart + strlen(netString);
+          i = tokenStart;
+          for(; i < len; i++)
+          {
+            if(parseResult[i] < '0' || parseResult[i] > '9')
+              break;
+          }
+          parseResult[i++] = 0;
+
+          if(isNewline(parseResult[i]))
+            i++;
+
+          const int port = atoi(&result[tokenStart]);
+          if(port >= RenderDoc_FirstTargetControlPort && port <= RenderDoc_LastTargetControlPort)
+          {
+            return port;
+          }
+          // continue on to next port
+        }
+        else
+        {
+          RDCERR("Malformed line - expected 'n*':\n%s", &result[i]);
+          return 0;
+        }
       }
     }
-
-    FileIO::fclose(f);
-  }
-
-  if(ret == 0)
-  {
-    RDCWARN("Couldn't locate renderdoc target control listening port between %u and %u in %s",
-            (uint32_t)RenderDoc_FirstTargetControlPort, (uint32_t)RenderDoc_LastTargetControlPort,
-            procfile.c_str());
-
-    if(!FileIO::exists(procfile))
+    else
     {
-      RDCWARN("Process %u is no longer running - did it exit during initialisation or fail to run?",
-              childPid);
+      RDCERR("pid from lsof output doesn't match childPid");
+      return 0;
     }
   }
-
-  return ret;
+  RDCERR("Failed to parse output from lsof:\n%s", result.c_str());
+  return 0;
 }
 
 static bool ptrace_scope_ok()
