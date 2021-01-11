@@ -479,7 +479,8 @@ bool StopChildAtMain(pid_t childPid)
   pio_desc.piod_offs = entry;
   pio_desc.piod_len = sizeof(long);
   ptraceRet = ptrace(PT_IO, childPid, (caddr_t)&pio_desc, 0);
-  RDCASSERTEQUAL(ptraceRet, sizeof(long));
+  RDCASSERTEQUAL(ptraceRet, 0);
+  RDCASSERTEQUAL(pio_desc.piod_len, sizeof(long));
   uint64_t origEntryWord = (uint64_t)pio_val;
 
   if(FreeBSD_Debug_PtraceLogging())
@@ -495,7 +496,8 @@ bool StopChildAtMain(pid_t childPid)
   pio_desc.piod_offs = entry;
   pio_desc.piod_len = sizeof(long);
   ptraceRet = ptrace(PT_IO, childPid, (caddr_t)&pio_desc, 0);
-  RDCASSERTEQUAL(ptraceRet, sizeof(long));
+  RDCASSERTEQUAL(ptraceRet, 0);
+  RDCASSERTEQUAL(pio_desc.piod_len, sizeof(long));
 
   if(FreeBSD_Debug_PtraceLogging())
     RDCLOG("Changed word to %llx and re-poked in process %u. Continuing child",
@@ -538,7 +540,8 @@ bool StopChildAtMain(pid_t childPid)
   pio_desc.piod_offs = entry;
   pio_desc.piod_len = sizeof(long);
   ptraceRet = ptrace(PT_IO, childPid, (caddr_t)&pio_desc, 0);
-  RDCASSERTEQUAL(ptraceRet, sizeof(long));
+  RDCASSERTEQUAL(ptraceRet, 0);
+  RDCASSERTEQUAL(pio_desc.piod_len, sizeof(long));
 
   if(FreeBSD_Debug_PtraceLogging())
     RDCLOG("Process %u instruction pointer adjusted and breakpoint removed.", childPid);
