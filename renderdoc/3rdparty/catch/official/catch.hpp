@@ -90,6 +90,9 @@
 #elif defined(linux) || defined(__linux) || defined(__linux__)
 #  define CATCH_PLATFORM_LINUX
 
+#elif defined(FreeBSD) || defined(__FreeBSD) || defined(__FreeBSD__)
+#  define CATCH_PLATFORM_FREEBSD
+
 #elif defined(WIN32) || defined(__WIN32__) || defined(_WIN32) || defined(_MSC_VER) || defined(__MINGW32__)
 #  define CATCH_PLATFORM_WINDOWS
 #endif
@@ -2721,7 +2724,7 @@ namespace Catch {
         #define CATCH_TRAP()  __asm__(".inst 0xde01")
     #endif
 
-#elif defined(CATCH_PLATFORM_LINUX)
+#elif defined(CATCH_PLATFORM_LINUX) || defined(CATCH_PLATFORM_FREEBSD)
     // If we can use inline assembler, do it because this allows us to break
     // directly at the location of the failing check instead of breaking inside
     // raise() called from it, i.e. one stack frame below.
@@ -10475,7 +10478,7 @@ namespace Catch {
         #endif
     } // namespace Catch
 
-#elif defined(CATCH_PLATFORM_LINUX)
+#elif defined(CATCH_PLATFORM_LINUX) ||  defined(CATCH_PLATFORM_FREEBSD)
     #include <fstream>
     #include <string>
 
